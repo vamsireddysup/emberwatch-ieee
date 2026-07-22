@@ -1,4 +1,4 @@
-.PHONY: test generate-v2 smoke-esn train-esn baselines loso receiver-demo dashboard
+.PHONY: test generate-v2 smoke-esn train-esn baselines loso quantize export-quant receiver-demo dashboard
 
 PYTHON := ./venv/bin/python
 
@@ -26,6 +26,13 @@ baselines:
 
 loso:
 	$(PYTHON) -m src.loso_experiment --max-rows-per-station 30000 --reservoir-size 32
+
+quantize:
+	$(PYTHON) -m src.quantize --max-rows-per-station 80000
+
+export-quant:
+	$(PYTHON) -m src.export_c_quant
+	cc -std=c11 -Wall -Wextra -Werror -Ifirmware/include -Ifirmware/generated -c firmware/src/emberwatch_inference_q.c -o build/inference_q.o
 
 receiver-demo:
 	$(PYTHON) -m src.simulate_receiver --count 20 --interval 0.05 | $(PYTHON) -m src.receiver --output artifacts/telemetry/demo.csv

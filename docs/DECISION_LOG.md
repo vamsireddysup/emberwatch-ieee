@@ -2,6 +2,21 @@
 
 ## 2026-07-22
 
+### Quantize weights only, keep float accumulation, pack the reservoir sparse
+
+The MCU model is stored as int8 or int16 with per-output-row float scales and dequantized
+during inference; accumulation stays in float. This captures the flash reduction, which is
+the binding constraint, while keeping numerics close enough to verify by Python/C parity.
+Full integer accumulation would additionally reduce compute but is deferred until measured
+MCU latency justifies it. The reservoir is packed CSR because it is generated with a fixed
+15 percent connectivity, so most entries are structurally zero and lossless to drop. The
+int8-sparse model is 1709 bytes (6.59x smaller than float) with unchanged event recall;
+int16-sparse is numerically identical to float at 2543 bytes. Final int8-vs-int16 choice
+is deferred to the hardware flash budget and is not frozen. The float export and reference
+C inference are retained unchanged.
+
+## 2026-07-22
+
 ### Detect ignition precursors, not wildfire
 
 The monitored object is a transformer, recloser, connector, or related grid asset. The
