@@ -26,6 +26,10 @@ The asset (equipment) temperature channel uses the NAB machine_temperature_syste
 
 There's also a transformer temperature dataset (ETT, Electricity Transformer Temperature) in the mix, used to pull realistic noise characteristics rather than as a direct signal source.
 
+### Dataset v2: physics-grounded synthetic device data
+
+The v1 pairing (NAB machine temp next to Oregon weather) turned out to be two unrelated signals, which limits what a detector can honestly learn from it. Dataset v2 fixes this: `src/synthesize_thermal.py` simulates a transformer-like device using a first-order RC thermal model, thermally driven by the real ambient data from each of the five stations. The simulation constants (sensor noise, daily load curve shapes, autocorrelation targets) all come from the real ETT transformer measurements, extracted by `src/calibrate_ett.py`, so the synthetic channel mimics measured reality rather than invented numbers. Faults (loose connections, overloads, cooling degradation, thermal runaway) are injected into the physics, and labels come from comparing against a healthy twin simulation, so every event has a real warm-up signature. Each station gets its own file under `data/synthetic_v2/` with chronological train/val/test splits and an event catalog for event-level scoring. Generation is seeded and fully reproducible; see `data/synthetic_v2/README.md` for details and honest limitations.
+
 Raw data files are not included in this repo because of their size. Everything under `data/raw/` and `data/processed/` is gitignored. The scripts in `src/` are written to reproduce the full pipeline from the original public sources, so anyone cloning this repo can regenerate everything locally.
 
 ## How to run this

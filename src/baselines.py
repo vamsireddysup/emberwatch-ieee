@@ -35,10 +35,19 @@ exists) are dropped before evaluation, since those are feature-computation artif
 real detector failures.
 
 Usage:
-    python src/baselines.py
+    python src/baselines.py                                        # v1 NAB features
+    python src/baselines.py --features data/processed/features_v2_<station>.csv \
+                            --model-suffix _v2_<station>
+
+If the features file has a split column (v2), thresholds are calibrated on the train
+split's Normal rows only and metrics are computed on the test split -- no leakage. v1
+files have no split column and keep the original calibrate-on-everything behavior
+(documented shortcut, acceptable for the tiny NAB label set).
 """
+import argparse
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from evaluate import score_predictions
@@ -55,42 +64,60 @@ def load_features(path: Path) -> pd.DataFrame:
     return df.sort_values("timestamp").reset_index(drop=True)
 
 
-def fixed_threshold_detector(df: pd.DataFrame) -> tuple:
-    normal = df.loc[df["label"] == "Normal", "delta_c"]
+def fixed_threshold_detector(calib_df: pd.DataFrame, eval_df: pd.DataFrame) -> tuple:
+    normal = calib_df.loc[calib_df["label"] == "Normal", "delta_c"]
     mean, std = normal.mean(), normal.std()
     lower, upper = mean - Z_SCORE * std, mean + Z_SCORE * std
-    pred = (df["delta_c"] < lower) | (df["delta_c"] > upper)
+    pred = (eval_df["delta_c"] < lower) | (eval_df["delta_c"] > upper)
     return pred, (lower, upper)
 
 
-def moving_average_detector(df: pd.DataFrame) -> tuple:
+def moving_average_detector(df: pd.DataFrame, calib_mask: np.ndarray, eval_mask: np.ndarray) -> tuple:
+    # Deviation is computed over the full series (each row only looks at its own trailing
+    # 30 minutes), then thresholds come from calibration rows and scoring from eval rows.
     rolling_mean = df.set_index("timestamp")["asset_temp_c"].rolling("30min").mean()
     deviation = df["asset_temp_c"].to_numpy() - rolling_mean.to_numpy()
 
-    normal_deviation = deviation[df["label"].to_numpy() == "Normal"]
+    normal_deviation = deviation[calib_mask & (df["label"].to_numpy() == "Normal")]
     mean, std = normal_deviation.mean(), normal_deviation.std()
     lower, upper = mean - Z_SCORE * std, mean + Z_SCORE * std
     pred = (deviation < lower) | (deviation > upper)
-    return pred, (lower, upper)
+    return pd.Series(pred[eval_mask]), (lower, upper)
 
 
 def main():
-    print(f"Loading {FEATURES_PATH}")
-    df = load_features(FEATURES_PATH)
+    parser = argparse.ArgumentParser(description="EmberWatch baseline detectors")
+    parser.add_argument("--features", type=Path, default=FEATURES_PATH)
+    parser.add_argument("--model-suffix", default="", help="Appended to recorded model names, e.g. _v2_hood_river")
+    args = parser.parse_args()
+
+    print(f"Loading {args.features}")
+    df = load_features(args.features)
     print(f"  rows: {len(df)}")
 
-    y_true = df["label"].isin(["Warming", "Anomaly"])
-    print(f"  alert rows (Warming or Anomaly): {y_true.sum()} / {len(df)}")
+    has_split = "split" in df.columns
+    if has_split:
+        calib_mask = (df["split"] == "train").to_numpy()
+        eval_mask = (df["split"] == "test").to_numpy()
+        print(f"  split-aware: calibrating on train ({calib_mask.sum()} rows), scoring on test ({eval_mask.sum()} rows)")
+    else:
+        calib_mask = np.ones(len(df), dtype=bool)
+        eval_mask = calib_mask
+    calib_df = df[calib_mask]
+    eval_df = df[eval_mask]
+
+    y_true = eval_df["label"].isin(["Warming", "Anomaly"])
+    print(f"  alert rows in scored set: {y_true.sum()} / {len(eval_df)}")
 
     print("\nFixed threshold detector (delta_c, two-sided)")
-    pred_fixed, (lower_fixed, upper_fixed) = fixed_threshold_detector(df)
+    pred_fixed, (lower_fixed, upper_fixed) = fixed_threshold_detector(calib_df, eval_df)
     print(f"  bounds: [{lower_fixed:.4f}, {upper_fixed:.4f}] degrees C")
-    score_predictions("fixed_threshold", y_true, pred_fixed)
+    score_predictions(f"fixed_threshold{args.model_suffix}", y_true, pred_fixed)
 
     print("\nMoving average detector (asset_temp_c deviation from 30min rolling mean, two-sided)")
-    pred_ma, (lower_ma, upper_ma) = moving_average_detector(df)
+    pred_ma, (lower_ma, upper_ma) = moving_average_detector(df, calib_mask, eval_mask)
     print(f"  bounds: [{lower_ma:.4f}, {upper_ma:.4f}] degrees C")
-    score_predictions("moving_average", y_true, pred_ma)
+    score_predictions(f"moving_average{args.model_suffix}", y_true, pred_ma)
 
 
 if __name__ == "__main__":
