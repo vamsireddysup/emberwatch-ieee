@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EmberWatch Monitor</title>
+  <style>
+    :root { color-scheme: light; --ink:#17201c; --muted:#64706a; --line:#d8dedb; --paper:#f7f9f8; --white:#fff; --green:#16724a; --amber:#b76809; --red:#b52b2f; --cyan:#147d91; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-width:320px; background:var(--paper); color:var(--ink); font:14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing:0; }
+    header { height:62px; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:0 28px; background:#123128; color:white; border-bottom:3px solid #e3a72f; }
+    .brand { font-size:21px; font-weight:750; }
+    .subbrand { color:#bad0c7; font-size:12px; margin-left:12px; }
+    .connection { display:flex; align-items:center; gap:8px; font-size:12px; }
+    .dot { width:9px; height:9px; border-radius:50%; background:#7b8681; }
+    .dot.live { background:#48c788; box-shadow:0 0 0 3px rgba(72,199,136,.18); }
+    main { width:min(1420px, 100%); margin:0 auto; padding:24px 28px 36px; }
+    .summary { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); background:var(--white); border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+    .metric { min-width:0; padding:16px 18px; border-right:1px solid var(--line); }
+    .metric:last-child { border-right:0; }
+    .metric-label { color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; }
+    .metric-value { margin-top:5px; font-size:24px; font-weight:720; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .state-normal { color:var(--green); } .state-warming { color:var(--amber); } .state-anomaly, .state-fault { color:var(--red); }
+    .workspace { display:grid; grid-template-columns:minmax(0, 1.8fr) minmax(300px, .8fr); gap:18px; margin-top:18px; }
+    section { background:var(--white); border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+    .section-head { height:46px; padding:0 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+    h2 { margin:0; font-size:14px; font-weight:720; }
+    .range { color:var(--muted); font-size:12px; }
+    .chart-wrap { height:370px; padding:14px 12px 8px; }
+    canvas { width:100%; height:100%; display:block; }
+    .legend { display:flex; gap:18px; color:var(--muted); font-size:12px; }
+    .legend span::before { content:""; display:inline-block; width:18px; height:3px; margin-right:6px; vertical-align:middle; background:var(--green); }
+    .legend span:last-child::before { background:var(--cyan); }
+    .details { padding:6px 16px 14px; }
+    .detail-row { display:flex; align-items:center; justify-content:space-between; min-height:40px; border-bottom:1px solid #edf0ee; }
+    .detail-row:last-child { border-bottom:0; }
+    .detail-row span:first-child { color:var(--muted); }
+    .detail-row strong { font-variant-numeric:tabular-nums; }
+    .table-section { margin-top:18px; }
+    .table-scroll { overflow:auto; max-height:330px; }
+    table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+    th { position:sticky; top:0; background:#f3f6f4; color:var(--muted); text-align:left; font-size:11px; text-transform:uppercase; padding:9px 12px; border-bottom:1px solid var(--line); }
+    td { padding:9px 12px; border-bottom:1px solid #edf0ee; white-space:nowrap; }
+    tr:last-child td { border-bottom:0; }
+    .empty { height:260px; display:grid; place-items:center; color:var(--muted); text-align:center; padding:20px; }
+    @media (max-width:900px) { .summary { grid-template-columns:repeat(2,1fr); } .metric { border-bottom:1px solid var(--line); } .workspace { grid-template-columns:1fr; } .subbrand { display:none; } }
+    @media (max-width:520px) { header { padding:0 16px; } main { padding:16px; } .summary { grid-template-columns:1fr 1fr; } .metric-value { font-size:19px; } .chart-wrap { height:280px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div><span class="brand">EmberWatch</span><span class="subbrand">Grid asset thermal monitor</span></div>
+    <div class="connection"><span id="live-dot" class="dot"></span><span id="connection-text">Waiting for telemetry</span></div>
+  </header>
+  <main>
+    <div class="summary">
+      <div class="metric"><div class="metric-label">Asset state</div><div id="state" class="metric-value">No data</div></div>
+      <div class="metric"><div class="metric-label">Asset temperature</div><div id="asset" class="metric-value">--</div></div>
+      <div class="metric"><div class="metric-label">Ambient</div><div id="ambient" class="metric-value">--</div></div>
+      <div class="metric"><div class="metric-label">Thermal delta</div><div id="delta" class="metric-value">--</div></div>
+      <div class="metric"><div class="metric-label">Model confidence</div><div id="confidence" class="metric-value">--</div></div>
+    </div>
+    <div class="workspace">
+      <section>
+        <div class="section-head"><h2>Temperature history</h2><div class="legend"><span>Asset</span><span>Ambient</span></div></div>
+        <div class="chart-wrap"><canvas id="chart"></canvas></div>
+      </section>
+      <section>
+        <div class="section-head"><h2>Latest packet</h2><span id="packet-time" class="range">--</span></div>
+        <div class="details">
+          <div class="detail-row"><span>Device</span><strong id="device">--</strong></div>
+          <div class="detail-row"><span>Sequence</span><strong id="sequence">--</strong></div>
+          <div class="detail-row"><span>Battery</span><strong id="battery">--</strong></div>
+          <div class="detail-row"><span>RSSI</span><strong id="rssi">--</strong></div>
+          <div class="detail-row"><span>SNR</span><strong id="snr">--</strong></div>
+          <div class="detail-row"><span>Uptime</span><strong id="uptime">--</strong></div>
+        </div>
+      </section>
+    </div>
+    <section class="table-section">
+      <div class="section-head"><h2>Recent telemetry</h2><span id="row-count" class="range">0 packets</span></div>
+      <div id="table-wrap" class="table-scroll"><div class="empty">No validated receiver packets yet.</div></div>
+    </section>
+  </main>
+  <script>
+    const stateNames = ["Normal", "Warming", "Anomaly", "Sensor fault"];
+    const $ = id => document.getElementById(id);
+    const temp = value => Number.isFinite(value) ? `${value.toFixed(1)} °C` : "--";
+    const elapsed = seconds => { const h=Math.floor(seconds/3600), m=Math.floor((seconds%3600)/60); return `${h}h ${m}m`; };
+    function drawChart(rows) {
+      const canvas=$("chart"), box=canvas.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+      canvas.width=Math.max(1,Math.round(box.width*dpr)); canvas.height=Math.max(1,Math.round(box.height*dpr));
+      const ctx=canvas.getContext("2d"); ctx.scale(dpr,dpr); const w=box.width,h=box.height,p={l:48,r:16,t:14,b:28};
+      ctx.clearRect(0,0,w,h); if(rows.length<2){ctx.fillStyle="#64706a";ctx.textAlign="center";ctx.fillText("Waiting for temperature history",w/2,h/2);return;}
+      const values=rows.flatMap(r=>[r.asset_temp_c,r.ambient_temp_c]); let min=Math.min(...values),max=Math.max(...values); if(max-min<2){min-=1;max+=1;} const pad=(max-min)*.12;min-=pad;max+=pad;
+      ctx.strokeStyle="#e2e7e4";ctx.fillStyle="#64706a";ctx.font="11px system-ui";ctx.textAlign="right";
+      for(let i=0;i<5;i++){const y=p.t+(h-p.t-p.b)*i/4,v=max-(max-min)*i/4;ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(w-p.r,y);ctx.stroke();ctx.fillText(`${v.toFixed(1)}°`,p.l-8,y+4);}
+      const plot=(key,color)=>{ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();rows.forEach((r,i)=>{const x=p.l+(w-p.l-p.r)*i/(rows.length-1),y=p.t+(max-r[key])*(h-p.t-p.b)/(max-min);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();};
+      plot("asset_temp_c","#16724a");plot("ambient_temp_c","#147d91");
+      ctx.fillStyle="#64706a";ctx.textAlign="left";ctx.fillText(new Date(rows[0].received_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}),p.l,h-6);ctx.textAlign="right";ctx.fillText(new Date(rows.at(-1).received_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}),w-p.r,h-6);
+    }
+    function render(rows) {
+      const latest=rows.at(-1); $("row-count").textContent=`${rows.length} packet${rows.length===1?"":"s"}`; drawChart(rows);
+      if(!latest)return; $("live-dot").classList.add("live");$("connection-text").textContent="Receiver log active";
+      const state=stateNames[latest.state]||"Unknown";$("state").textContent=state;$("state").className=`metric-value state-${state.toLowerCase().replace(" ","-")}`;
+      $("asset").textContent=temp(latest.asset_temp_c);$("ambient").textContent=temp(latest.ambient_temp_c);$("delta").textContent=temp(latest.delta_c);$("confidence").textContent=`${Math.round(latest.confidence*100)}%`;
+      $("packet-time").textContent=new Date(latest.received_at).toLocaleString();$("device").textContent=latest.device_id;$("sequence").textContent=latest.sequence;$("battery").textContent=`${latest.battery_mv} mV`;$("rssi").textContent=`${latest.rssi_dbm} dBm`;$("snr").textContent=`${latest.snr_db.toFixed(1)} dB`;$("uptime").textContent=elapsed(latest.uptime_s);
+      const recent=rows.slice(-30).reverse();$("table-wrap").innerHTML=`<table><thead><tr><th>Time</th><th>State</th><th>Asset</th><th>Ambient</th><th>Delta</th><th>Confidence</th><th>RSSI</th></tr></thead><tbody>${recent.map(r=>`<tr><td>${new Date(r.received_at).toLocaleTimeString()}</td><td class="state-${(stateNames[r.state]||"fault").toLowerCase().replace(" ","-")}">${stateNames[r.state]||"Unknown"}</td><td>${temp(r.asset_temp_c)}</td><td>${temp(r.ambient_temp_c)}</td><td>${temp(r.delta_c)}</td><td>${Math.round(r.confidence*100)}%</td><td>${r.rssi_dbm} dBm</td></tr>`).join("")}</tbody></table>`;
+    }
+    async function refresh(){try{const response=await fetch("/api/telemetry?limit=500",{cache:"no-store"});if(!response.ok)throw new Error();render((await response.json()).rows);}catch{$("live-dot").classList.remove("live");$("connection-text").textContent="Dashboard API unavailable";}}
+    window.addEventListener("resize",refresh);refresh();setInterval(refresh,3000);
+  </script>
+</body>
+</html>

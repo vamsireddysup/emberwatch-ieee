@@ -28,7 +28,7 @@ detectors comparable -- neither one is hand-tuned differently from the other.
 Both detectors are scored through the shared harness in src/evaluate.py (score_predictions),
 which prints accuracy/precision/recall/false_positive_rate and records each result as a row
 in data/processed/evaluation_results.csv, so they show up alongside any other model (e.g.
-Amogh's ESN) scored through that same harness.
+the deployable ESN) scored through that same harness.
 
 Rows with a null slope/variance (the first few rows of the series, before enough history
 exists) are dropped before evaluation, since those are feature-computation artifacts, not

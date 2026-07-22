@@ -1,46 +1,109 @@
 # EmberWatch
 
-EmberWatch is a wireless temperature sensor node I'm building for the IEEE HART HardwAIre Challenge. It's coin sized, battery powered, and clamps onto grid adjacent electrical equipment in wildfire prone regions. The idea is to catch overheating on that equipment with on device AI before it turns into an ignition event.
+EmberWatch is a low-power temperature monitoring system for transformers, reclosers, and
+other grid assets in wildfire-prone regions. Its purpose is to detect abnormal heating at
+the potential ignition source before a fire starts. It is not a forest fire sensor.
 
-## Why this matters
+Two NTC thermistors measure asset and ambient temperature. A small echo state network
+(ESN) runs on the sensor MCU, classifies each thermal sequence as `Normal`, `Warming`, or
+`Anomaly`, and gates LoRa transmissions. A custom reader decodes the radio payload and
+forwards CRC-validated telemetry over USB serial to a host logger.
 
-Electrical grid equipment is a documented wildfire ignition source in the Pacific Northwest. Most of the monitoring that exists today is manual or expensive to deploy at scale. A node like this is cheap enough and small enough that you could put a lot of them out on equipment that currently gets no monitoring at all, and it's smart enough to decide on its own whether what it's seeing is worth telling anyone about.
+## Start here
 
-## What the AI actually does
+- [Current project state](docs/PROJECT_STATE.md)
+- [System architecture](docs/ARCHITECTURE.md)
+- [ML design and commands](docs/ML_PIPELINE.md)
+- [Hardware integration](docs/HARDWARE_INTEGRATION.md)
+- [Hardware and end-to-end validation](docs/VALIDATION_PLAN.md)
+- [Telemetry protocol](docs/PROTOCOL.md)
+- [Software verification record](docs/TESTING.md)
+- [Competition requirements](docs/COMPETITION_REQUIREMENTS.md)
+- [Claude/Codex workflow](docs/COLLABORATION.md)
 
-The core model is an echo state network that runs directly on the Cortex-M4 core of the STM32WL55 microcontroller. It reads the thermal time series coming off two NTC thermistors (one on the monitored equipment, one for ambient) and classifies each window as normal, warming, or anomaly. That classification gates the LoRa radio. If the state hasn't changed and nothing looks anomalous, the node stays quiet and saves power. If something changes, it wakes the radio and sends a packet.
+## Repository map
 
-That single on device decision is what the whole project's value proposition rests on. Fewer unnecessary transmissions means longer battery life, which means the node can go longer between maintenance visits and can be deployed in places that are harder to reach.
-
-## My role
-
-I own the AI and data side. That means the dataset architecture, the feature engineering pipeline, the baseline detectors we compare the ESN against, and the evaluation harness that scores any model (baseline or ESN) on the same metrics, so results are apples to apples no matter who trained what.
-
-## Dataset architecture
-
-There isn't a real fielded EmberWatch sensor yet, so the dataset is assembled from existing public data that stands in for the real thing until we have hardware in the field.
-
-Ambient temperature comes from several real weather stations in Oregon and Northern California, chosen because they sit in or near wildfire prone terrain: airport weather stations around the Columbia Gorge and Portland metro area, plus RAWS (Remote Automatic Weather Station) data from sites closer to the actual fire risk zones. Each station is kept as its own separate dataset rather than merged into one blended ambient signal, since merging would hide differences in elevation, microclimate, and data quality between sites.
-
-The asset (equipment) temperature channel uses the NAB machine_temperature_system_failure dataset, a real, publicly labeled time series of a machine sensor that actually failed. It's not a perfect stand in for electrical equipment, but it's real sensor data with real labeled anomalies, which is more useful for a working baseline than anything synthetic would be at this stage.
-
-There's also a transformer temperature dataset (ETT, Electricity Transformer Temperature) in the mix, used to pull realistic noise characteristics rather than as a direct signal source.
-
-Raw data files are not included in this repo because of their size. Everything under `data/raw/` and `data/processed/` is gitignored. The scripts in `src/` are written to reproduce the full pipeline from the original public sources, so anyone cloning this repo can regenerate everything locally.
-
-## How to run this
-
-Clone the repo, then from the project root:
-
+```text
+src/          ingestion, simulation, features, baselines, ESN, export, receiver
+firmware/     portable C inference and packet codec
+tests/        Python tests plus C and Python/C parity checks
+docs/         architecture, decisions, integration, requirements, generated results
+archives/     preserved superseded material and archive index
+data/         local raw/processed datasets; intentionally gitignored
+artifacts/    generated models, reports, telemetry logs; intentionally gitignored
 ```
+
+No project file is deleted when it becomes obsolete. See `archives/INDEX.md`.
+
+## Install
+
+```bash
 python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
 ```
 
-Drop the required raw files into `data/raw/` (see the docstring at the top of `src/ingest.py` for the exact filenames expected). Then run:
+## Train and compare
 
-```
-./venv/bin/python src/ingest.py
+The current larger candidate uses five stations, a 48-unit reservoir, and at most 80,000
+chronology-preserving rows per station in each time split:
+
+```bash
+./venv/bin/python -m src.train_esn --max-rows-per-station 80000 --reservoir-size 48
+./venv/bin/python -m src.baselines_v2 --max-rows-per-station 80000
 ```
 
-This downloads the NAB files automatically if they're missing, processes each ambient weather station independently, and writes the processed outputs into `data/processed/`.
+The trainer fits on 2020-2021, selects its alert threshold on 2022 validation data, and
+reports 2023 test performance. It writes an ignored NumPy artifact, a detailed JSON
+report, [the tracked result summary](docs/generated/ML_RESULTS.md), and
+`firmware/generated/emberwatch_model.h`.
+
+Synthetic results are engineering validation only. The NAB set is a real-machine sanity
+check but is not physically paired transformer/ambient data. Final claims require the
+controlled heating rig and physical sensor calibration described in the integration doc.
+
+## Receiver without hardware
+
+```bash
+./venv/bin/python -m src.simulate_receiver --count 20 --interval 0.2 \
+  | ./venv/bin/python -m src.receiver --output artifacts/telemetry/demo.csv
+```
+
+With the custom receiver connected:
+
+```bash
+./venv/bin/python -m src.receiver --port /dev/cu.usbmodemXXXX
+```
+
+Run the local dashboard against the receiver log:
+
+```bash
+./venv/bin/python -m src.dashboard --log artifacts/telemetry/receiver_log.csv
+```
+
+The receiver-to-host choice is USB for the prototype. A later Raspberry Pi or gateway
+can bridge the same log to Wi-Fi or Ethernet without changing the sensor radio packet.
+
+## Reproduce synthetic data
+
+The exact generator for the pre-existing local v2 files was not tracked. Those files are
+preserved. The deterministic replacement writes to a new artifact directory by default:
+
+```bash
+./venv/bin/python -m src.synthetic_v2
+```
+
+See [synthetic data assumptions](docs/SYNTHETIC_DATA.md) before using it in a claim.
+
+## Verify
+
+```bash
+./venv/bin/python -m py_compile src/*.py
+./venv/bin/python -m unittest discover -s tests -v
+mkdir -p build
+cc -std=c11 -Wall -Wextra -Werror -Ifirmware/include \
+  firmware/src/emberwatch_protocol.c tests/c/test_protocol.c -o build/test_protocol
+./build/test_protocol
+```
+
+The test suite trains a small ESN, exports it, compiles the C inference implementation,
+and checks Python/C probabilities on the same sequence.

@@ -1,8 +1,8 @@
 """
 Step 4 evaluation harness for EmberWatch.
 
-This is the shared scoring contract every model in this project -- the baselines here,
-and eventually Amogh's ESN -- is measured with, so results are directly comparable no
+This is the shared scoring contract every model in this project -- the baselines and the
+deployable ESN -- is measured with, so results are directly comparable no
 matter who trained what or how.
 
 "Alert" (the positive class) means the node would wake the radio and transmit: ground
@@ -16,7 +16,7 @@ Two ways to use this:
 1. In-process (for code that already has y_true/y_pred arrays in memory, like
    src/baselines.py): call score_predictions(model_name, y_true, y_pred).
 
-2. From the command line (for anyone -- e.g. Amogh -- scoring a model that ran outside
+2. From the command line (for anyone scoring a model that ran outside
    this codebase): produce a predictions CSV with exactly two columns,
        timestamp, predicted_alert
    where predicted_alert is 0/1 or True/False, one row per timestamp your model made a
@@ -54,6 +54,8 @@ def evaluate(y_true, y_pred) -> dict:
     y_pred = np.asarray(y_pred).astype(bool)
     if len(y_true) != len(y_pred):
         raise ValueError(f"y_true and y_pred must be the same length, got {len(y_true)} vs {len(y_pred)}")
+    if len(y_true) == 0:
+        raise ValueError("y_true and y_pred must not be empty")
 
     tp = int(np.sum(y_true & y_pred))
     tn = int(np.sum(~y_true & ~y_pred))

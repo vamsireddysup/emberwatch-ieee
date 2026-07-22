@@ -1,9 +1,14 @@
 data/raw/
 data/processed/
+data/synthetic_v2/
 venv/
 __pycache__/
+.pytest_cache/
 .DS_Store
 *.xls
 *.xlsx
 *.csv
 *.json
+artifacts/
+build/
+*.pyc
