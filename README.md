@@ -15,6 +15,7 @@ forwards CRC-validated telemetry over USB serial to a host logger.
 - [System architecture](docs/ARCHITECTURE.md)
 - [ML design and commands](docs/ML_PIPELINE.md)
 - [Hardware integration](docs/HARDWARE_INTEGRATION.md)
+- [Hardware setup and execution guide](docs/HARDWARE_SETUP_GUIDE.md)
 - [Hardware and end-to-end validation](docs/VALIDATION_PLAN.md)
 - [Telemetry protocol](docs/PROTOCOL.md)
 - [Software verification record](docs/TESTING.md)
