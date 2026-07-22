@@ -1,19 +1,22 @@
-# Synthetic Thermal Dataset
+# Synthetic Thermal Datasets
 
-The local `data/synthetic_v2/` and `data/processed/features_v2_*.csv` files predate the
-tracked generator. They are preserved and remain useful for current experiments, but
-their exact provenance cannot be reconstructed from git. `src/synthetic_v2.py` is the
-deterministic replacement for future generated datasets; it does not pretend to recreate
-the old bytes.
+The canonical dataset-v2 pipeline is tracked in `src/calibrate_ett.py` and
+`src/synthesize_thermal.py`. It produces `data/synthetic_v2/` from ETT calibration and
+real station ambient data using seed 42. The detailed column, label, fault, and realism
+contract lives in `data/synthetic_v2/README.md`.
 
-## Nominal model
+`src/synthetic_v2.py` is a second, independent experimental generator added for model
+sensitivity studies. It writes under `artifacts/` by default, uses a simpler thermal
+formulation, and must not be presented as the source of the canonical v2 files.
+
+## Alternate nominal model
 
 Real station ambient temperature drives a synthetic load profile with daily, weekly, and
 correlated stochastic components. A first-order thermal system moves asset temperature
 toward `ambient + base rise + load-squared rise`; noise scale comes from the local ETT
 calibration when available.
 
-## Fault hypotheses
+## Alternate fault hypotheses
 
 - `overload`: relatively fast saturating excess heat.
 - `loose_connection`: progressive resistive heating with intermittent modulation.
@@ -26,6 +29,13 @@ thresholds must be reviewed against controlled rig data and domain expertise.
 
 ## Reproducibility
 
-The generator records seed, date range, stations, event rate, and version in a manifest.
-It refuses to overwrite output unless `--force` is explicit. Write review datasets under
-`artifacts/` so the unexplained legacy data remains untouched.
+The canonical pipeline is reproduced with:
+
+```bash
+./venv/bin/python src/calibrate_ett.py
+./venv/bin/python src/synthesize_thermal.py --station all --seed 42
+```
+
+The alternate generator records seed, date range, stations, event rate, and version in a
+manifest and refuses to overwrite output unless `--force` is explicit. Keep alternate
+review datasets under `artifacts/` so canonical v2 data remains distinct.

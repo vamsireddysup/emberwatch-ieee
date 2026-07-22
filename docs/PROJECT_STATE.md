@@ -16,14 +16,16 @@ source and its thermal precursor.
 
 ## Current repository
 
-The original tracked pipeline downloads and processes NAB and weather data, engineers
-four thermal dynamics features, runs two threshold baselines, and records binary alert
-metrics. Local ignored data also contains five station-specific synthetic-v2 datasets,
-but the generator that produced those exact files was not present in git.
+The tracked data pipeline downloads and processes NAB and weather data, calibrates thermal
+behavior from ETT, generates five station-specific physics-grounded v2 datasets, engineers
+thermal dynamics features, runs threshold baselines, and records metrics. The canonical
+generator is `src/synthesize_thermal.py`; its assumptions are documented in
+`data/synthetic_v2/README.md`.
 
-This software expansion adds a deterministic replacement generator, a multi-station ESN
-pipeline, event and radio metrics, MCU model export, a binary telemetry protocol, a USB
-receiver/logger, host-buildable embedded inference code, tests, and collaboration docs.
+The software expansion adds a multi-station ESN pipeline, an alternate experimental
+generator, event and radio metrics, MCU model export, a binary telemetry protocol, a USB
+receiver/logger and dashboard, host-buildable embedded code, tests, and collaboration
+docs.
 
 ## Current model candidate
 

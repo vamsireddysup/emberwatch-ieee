@@ -21,6 +21,21 @@ forwards CRC-validated telemetry over USB serial to a host logger.
 - [Competition requirements](docs/COMPETITION_REQUIREMENTS.md)
 - [Claude/Codex workflow](docs/COLLABORATION.md)
 
+## Dataset architecture
+
+Real ambient measurements come from five Oregon and Northern California stations. The
+canonical dataset-v2 pipeline in `src/calibrate_ett.py` and
+`src/synthesize_thermal.py` calibrates noise and load shapes from real ETT transformer
+measurements, simulates a first-order RC thermal system and healthy twin, and injects
+overload, loose-connection, cooling-degradation, and thermal-runaway events. It produces
+chronological 2020-2021 train, 2022 validation, and 2023 test data. See
+`data/synthetic_v2/README.md` for the model and limitations.
+
+The original NAB machine-temperature pairing remains as a real-machine sanity check, but
+it is not a physically paired transformer/ambient dataset. `src/synthetic_v2.py` is an
+alternate experimental generator that writes under `artifacts/`; it does not replace the
+canonical ETT-calibrated v2 pipeline.
+
 ## Repository map
 
 ```text
@@ -85,14 +100,23 @@ can bridge the same log to Wi-Fi or Ethernet without changing the sensor radio p
 
 ## Reproduce synthetic data
 
-The exact generator for the pre-existing local v2 files was not tracked. Those files are
-preserved. The deterministic replacement writes to a new artifact directory by default:
+Regenerate the canonical ETT calibration and physics-grounded dataset-v2 files:
+
+```bash
+./venv/bin/python src/calibrate_ett.py
+./venv/bin/python src/synthesize_thermal.py --station all --seed 42
+```
+
+Generate feature files with the model schema using the per-station commands documented
+in `data/synthetic_v2/README.md` and `src/features.py`. For an independent experimental
+simulation under `artifacts/`:
 
 ```bash
 ./venv/bin/python -m src.synthetic_v2
 ```
 
-See [synthetic data assumptions](docs/SYNTHETIC_DATA.md) before using it in a claim.
+See [synthetic data assumptions](docs/SYNTHETIC_DATA.md) before using either generator in
+a claim.
 
 ## Verify
 

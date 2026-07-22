@@ -1,8 +1,8 @@
-"""Deterministic physics-informed thermal/fault dataset generator.
+"""Alternate deterministic physics-informed thermal/fault dataset generator.
 
-This is a documented replacement for the untracked generator that created the existing
-local synthetic-v2 artifacts. It does not claim to reproduce those files byte-for-byte.
-By default it writes under artifacts/ and refuses to overwrite files.
+The canonical dataset-v2 pipeline is src/calibrate_ett.py plus
+src/synthesize_thermal.py. This independent generator supports sensitivity experiments;
+it writes under artifacts/ by default and refuses to overwrite files.
 """
 
 from __future__ import annotations

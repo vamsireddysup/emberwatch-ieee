@@ -2,10 +2,11 @@
 
 ## 2026-07-22 - Codex software foundation
 
-- Objective: make the local v2 data reproducible and build the complete ML-to-receiver
-  software path while preserving all existing material.
-- Scope: documentation, synthetic generator, ESN, metrics, C export/reference, protocol,
-  receiver, and tests.
+- Objective: extend the reproducible canonical v2 pipeline with the complete
+  ML-to-receiver software path while preserving all existing material.
+- Scope: documentation, alternate simulation, ESN, metrics, C export/reference, protocol,
+  receiver/dashboard, and tests. The remote canonical ETT-calibrated v2 generator was
+  merged and retained.
 - Assumptions: five-minute model cadence; STM32WL55/Cortex-M4 target; two NTC channels;
   LoRa node-to-reader and USB serial reader-to-host.
 - Existing files removed: none.

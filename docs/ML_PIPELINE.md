@@ -9,14 +9,16 @@ threshold is stable recall with fewer false transmissions across weather conditi
 ## Data layers
 
 - Real ambient weather supplies seasonal and station variability.
-- ETT transformer data supplies measured noise/load-shape calibration.
-- Physics-informed simulation creates paired nominal asset temperature and controlled
-  fault excess for four fault families.
+- ETT transformer data supplies measured noise/load-shape calibration through
+  `src/calibrate_ett.py`.
+- The canonical `src/synthesize_thermal.py` healthy/fault twin simulation creates paired
+  nominal asset temperature and controlled excess for four fault families.
 - NAB remains an independent real-machine anomaly sanity check, with explicit caveats.
 - Heated-rig recordings will supersede synthetic assumptions for final calibration.
 
-The replacement generator is deterministic by seed and refuses to overwrite existing
-data without `--force`.
+The canonical generator is deterministic by seed and reproduces `data/synthetic_v2/`.
+The alternate `src/synthetic_v2.py` generator writes to `artifacts/` by default and
+refuses to overwrite existing data without `--force`.
 
 ## Leakage controls
 
@@ -67,7 +69,14 @@ Larger candidate run:
 ./venv/bin/python -m src.train_esn --max-rows-per-station 80000 --reservoir-size 48
 ```
 
-Regenerate synthetic data only into a new directory during review:
+Regenerate the canonical dataset:
+
+```bash
+./venv/bin/python src/calibrate_ett.py
+./venv/bin/python src/synthesize_thermal.py --station all --seed 42
+```
+
+Run an alternate simulation only into a new directory during review:
 
 ```bash
 ./venv/bin/python -m src.synthetic_v2 --output-dir artifacts/synthetic_review

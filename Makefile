@@ -1,4 +1,4 @@
-.PHONY: test smoke-esn train-esn baselines loso receiver-demo dashboard
+.PHONY: test generate-v2 smoke-esn train-esn baselines loso receiver-demo dashboard
 
 PYTHON := ./venv/bin/python
 
@@ -10,6 +10,10 @@ test:
 	./build/test_protocol
 	cc -std=c11 -Wall -Wextra -Werror -Ifirmware/include firmware/src/emberwatch_features.c firmware/src/emberwatch_policy.c tests/c/test_features_policy.c -lm -o build/test_features_policy
 	./build/test_features_policy
+
+generate-v2:
+	$(PYTHON) src/calibrate_ett.py
+	$(PYTHON) src/synthesize_thermal.py --station all --seed 42
 
 smoke-esn:
 	$(PYTHON) -m src.train_esn --max-rows-per-station 12000 --reservoir-size 24

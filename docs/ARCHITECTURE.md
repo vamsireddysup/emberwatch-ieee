@@ -24,7 +24,9 @@ change, abnormal confidence, heartbeat, or fault.
 | Area | Modules | Contract |
 |---|---|---|
 | Data ingestion | `src/ingest.py` | Raw public data to normalized UTC station series |
-| Simulation | `src/synthetic_v2.py` | Ambient series to labeled asset/fault sequences |
+| Calibration | `src/calibrate_ett.py` | Real ETT signatures for simulation parameters |
+| Canonical simulation | `src/synthesize_thermal.py` | ETT-calibrated healthy/fault twin dataset v2 |
+| Alternate simulation | `src/synthetic_v2.py` | Independent experiments under artifacts |
 | Features | `src/features.py`, `src/ml_data.py` | Stable MCU-computable feature vector |
 | Model | `src/esn.py`, `src/train_esn.py` | Three probabilities and class state |
 | Export | `src/export_c.py` | Python model to deterministic C constants |

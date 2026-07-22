@@ -101,7 +101,7 @@ def fetch_nab_data() -> None:
     download_file(NAB_LABELS_URL, RAW_DIR / "combined_labels.json")
 
 
-def process_asos_station(path: Path, station: str) -> pd.Series:
+def process_asos_station(path: Path, station: str, ffill_limit: int = None) -> pd.Series:
     df = pd.read_csv(path, skiprows=10, low_memory=False)
     df = df.iloc[1:].reset_index(drop=True)  # drop the units row
     df = df[["Date_Time", "air_temp_set_1"]].rename(
@@ -114,11 +114,11 @@ def process_asos_station(path: Path, station: str) -> pd.Series:
     # ASOS exports can report more than one reading for the same minute; average duplicates
     # so the timestamp index is unique before resampling.
     series = df.groupby("timestamp")["ambient_temp_c"].mean()
-    series = series.resample("5min").ffill()
+    series = series.resample("5min").ffill(limit=ffill_limit)
     return series
 
 
-def process_wrcc_station(path: Path, station: str) -> pd.Series:
+def process_wrcc_station(path: Path, station: str, ffill_limit: int = None) -> pd.Series:
     df = pd.read_csv(path, sep="\t", skiprows=4, header=None)
     raw_timestamp = df[0].astype(str)
     temp = pd.to_numeric(df[WRCC_TEMP_COL_INDEX], errors="coerce")
@@ -131,7 +131,7 @@ def process_wrcc_station(path: Path, station: str) -> pd.Series:
     out = out.dropna(subset=["timestamp", "ambient_temp_c"]).sort_values("timestamp")
 
     series = out.groupby("timestamp")["ambient_temp_c"].mean()
-    series = series.resample("5min").ffill()
+    series = series.resample("5min").ffill(limit=ffill_limit)
     return series
 
 
