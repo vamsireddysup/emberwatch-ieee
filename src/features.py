@@ -43,8 +43,17 @@ Output columns:
     source           - passed through from the input file (fixed 'real_winter')
 
 Usage:
-    python src/features.py
+    python src/features.py                       # v1 NAB default, output unchanged
+    python src/features.py --input data/synthetic_v2/device_thermal_<station>.csv \
+                           --output data/processed/features_v2_<station>.csv \
+                           --source-name synthetic_v2_<station>
+
+v2 mode (auto-detected by the device_temp_c column): the input's own physics-derived
+labels are passed through untouched (no NAB window expansion), device_temp_c is renamed
+asset_temp_c so downstream consumers see one schema, delta_c is computed, and
+event_id/fault_type/split are appended after the v1 columns.
 """
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -112,12 +121,32 @@ def compute_variance(df: pd.DataFrame, column: str, minutes: int) -> pd.Series:
 
 
 def main():
-    print(f"Loading {INPUT_PATH}")
-    df = load_asset_data(INPUT_PATH)
-    print(f"  rows after deduping timestamps: {len(df)}")
+    parser = argparse.ArgumentParser(description="EmberWatch feature engineering")
+    parser.add_argument("--input", type=Path, default=INPUT_PATH,
+                        help="Input CSV: v1 asset channel (default) or a v2 device_thermal_<station>.csv")
+    parser.add_argument("--output", type=Path, default=OUTPUT_PATH)
+    parser.add_argument("--source-name", default=None,
+                        help="Value for the source column (v2 inputs have no source column of their own)")
+    args = parser.parse_args()
 
-    print("Expanding anomaly points into Warming/Anomaly windows...")
-    df["label"] = expand_anomaly_windows(df)
+    print(f"Loading {args.input}")
+    # v2 synthetic files carry device_temp_c plus their own physics-derived labels,
+    # event_id/fault_type/split; v1 needs dedup + NAB point-label window expansion.
+    peek = pd.read_csv(args.input, nrows=1)
+    is_v2 = "device_temp_c" in peek.columns
+
+    if is_v2:
+        df = pd.read_csv(args.input, parse_dates=["timestamp"])
+        df = df.rename(columns={"device_temp_c": "asset_temp_c"})
+        df = df.sort_values("timestamp").reset_index(drop=True)
+        df["delta_c"] = df["asset_temp_c"] - df["ambient_temp_c"]
+        df["source"] = args.source_name if args.source_name else "synthetic_v2"
+        print(f"  v2 input: {len(df)} rows, labels passed through unchanged")
+    else:
+        df = load_asset_data(args.input)
+        print(f"  rows after deduping timestamps: {len(df)}")
+        print("Expanding anomaly points into Warming/Anomaly windows...")
+        df["label"] = expand_anomaly_windows(df)
 
     print("Computing slopes and variance...")
     df["slope_1min"] = compute_slope(df, "asset_temp_c", 1)
@@ -125,25 +154,26 @@ def main():
     df["slope_15min"] = compute_slope(df, "asset_temp_c", 15)
     df["variance_30min"] = compute_variance(df, "asset_temp_c", 30)
 
-    out = df[
-        [
-            "timestamp",
-            "asset_temp_c",
-            "ambient_temp_c",
-            "delta_c",
-            "slope_1min",
-            "slope_5min",
-            "slope_15min",
-            "variance_30min",
-            "label",
-            "source",
-        ]
+    columns = [
+        "timestamp",
+        "asset_temp_c",
+        "ambient_temp_c",
+        "delta_c",
+        "slope_1min",
+        "slope_5min",
+        "slope_15min",
+        "variance_30min",
+        "label",
+        "source",
     ]
+    if is_v2:
+        columns += ["event_id", "fault_type", "split"]
+    out = df[columns]
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    out.to_csv(OUTPUT_PATH, index=False)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    out.to_csv(args.output, index=False)
 
-    print(f"\nWrote {OUTPUT_PATH}")
+    print(f"\nWrote {args.output}")
     print(f"  rows: {len(out)}")
     print(f"  date range: {out['timestamp'].min()} to {out['timestamp'].max()}")
     print("  label distribution:")
