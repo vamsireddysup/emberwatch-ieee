@@ -1,4 +1,4 @@
-.PHONY: test generate-v2 smoke-esn train-esn baselines loso quantize export-quant energy compare receiver-demo dashboard
+.PHONY: test generate-v2 smoke-esn train-esn baselines loso quantize export-quant energy compare robustness receiver-demo dashboard
 
 PYTHON := ./venv/bin/python
 
@@ -39,6 +39,9 @@ energy:
 
 compare:
 	$(PYTHON) -m src.compare_models --max-rows-per-station 80000
+
+robustness:
+	$(PYTHON) -m src.station_robustness --max-rows-per-station 80000
 
 receiver-demo:
 	$(PYTHON) -m src.simulate_receiver --count 20 --interval 0.05 | $(PYTHON) -m src.receiver --output artifacts/telemetry/demo.csv
