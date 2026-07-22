@@ -2,6 +2,27 @@
 
 Last run: 2026-07-22
 
+## Software-completion pass (energy, comparison, robustness, quantization, hardware guide)
+
+```bash
+make test          # 15 Python tests pass; C protocol and features/policy executables pass
+make export-quant  # quantized header generated; quantized C compiles under -Werror
+make energy        # battery-life model runs; writes docs/generated/ENERGY_RESULTS.md
+make compare       # one comparison table; writes docs/generated/MODEL_COMPARISON.md
+make robustness    # per-station analysis; writes docs/generated/STATION_ROBUSTNESS.md
+```
+
+The `docs/HARDWARE_SETUP_GUIDE.md` main-loop skeleton was compiled and linked against the
+real firmware modules (`emberwatch_features/inference_q/policy/protocol`) under
+`-std=c11 -Wall -Wextra -Werror` and run, to confirm the integration code handed to the
+hardware team is correct.
+
+Quantization result: int8-sparse model is 1709 bytes (6.59x smaller than float) with event
+recall unchanged at 0.9388 on the 400k-row test split; C<->Python parity holds for int8 and
+int16 (`tests/test_quantized_parity.py`).
+
+## Earlier run (Codex foundation)
+
 ## Automated checks
 
 ```bash

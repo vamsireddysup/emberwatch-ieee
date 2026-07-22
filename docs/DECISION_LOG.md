@@ -2,6 +2,25 @@
 
 ## 2026-07-22
 
+### State the energy claim as two separate claims
+
+The battery-life advantage of transmitting only on change is large but is achieved almost
+equally by a threshold detector, so it is a system property, not an ESN result. The ESN's
+distinct advantage is detection quality: higher event recall and positive median lead
+(alerting before the anomaly label rather than after). Reporting keeps these separate.
+`src/energy_model.py` quantifies the system claim from real transmission counts with an
+editable placeholder hardware block; `src/compare_models.py` shows the AI claim in one
+table alongside baselines and quantized variants.
+
+### Per-device threshold trim, not feature self-calibration, for station FPR
+
+Swapping input normalization per station at inference makes FPR worse, because the readout
+and threshold were fit against the global normalization. The accepted mitigation is a
+per-device alert-threshold trim chosen on a commissioning period (validation split as
+proxy), never lowered below the shipped threshold; it brings the RAWS stations under budget
+without touching weights. A per-station readout retrain remains the fuller fix and is left
+to the ML pipeline owner.
+
 ### Quantize weights only, keep float accumulation, pack the reservoir sparse
 
 The MCU model is stored as int8 or int16 with per-output-row float scales and dequantized

@@ -27,6 +27,17 @@ generator, event and radio metrics, MCU model export, a binary telemetry protoco
 receiver/logger and dashboard, host-buildable embedded code, tests, and collaboration
 docs.
 
+A later software-completion pass added: int8/int16 quantized sparse model export (1.7 KB,
+event recall unchanged; `docs/generated/QUANTIZATION_RESULTS.md`); a radio-energy and
+battery-life model with an editable placeholder hardware block
+(`docs/generated/ENERGY_RESULTS.md`); a single comparison table across baselines and all
+ESN variants (`docs/generated/MODEL_COMPARISON.md`); a per-station robustness analysis with
+a working per-device threshold-trim mitigation for the RAWS-station FPR
+(`docs/generated/STATION_ROBUSTNESS.md`); and a hardware setup and execution guide
+(`docs/HARDWARE_SETUP_GUIDE.md`). These clarified that the transmission-reduction benefit is
+a system property shared with the threshold baseline, while the ESN's distinct advantage is
+event recall and lead time.
+
 ## Current model candidate
 
 The 2026-07-22 candidate uses a 48-unit reservoir and a bounded maximum of 80,000
@@ -36,8 +47,10 @@ achieved 0.807 alert precision, 0.472 alert recall, 0.0082 false-positive rate, 
 sampled-event recall, and 25-minute median lead. Detailed results are in
 `docs/generated/ML_RESULTS.md`. These are synthetic engineering metrics, not field claims.
 
-The generated header is about 28 KB and reservoir state is 192 bytes; exact linked flash,
-stack, latency, and energy still require the target MCU build and measurement.
+The float generated header is about 28 KB; the quantized int8 header holds the same model
+in about 1.7 KB of constants with unchanged event recall, meeting the original int8/few-KB
+MCU target. Reservoir state is 192 bytes. Exact linked flash, stack, latency, and energy
+still require the target MCU build and measurement.
 
 ## Verified local data
 
@@ -82,9 +95,14 @@ team and captured in `docs/HARDWARE_INTEGRATION.md` before production firmware i
 ## Next milestones
 
 1. Obtain hardware constants and create the thermistor calibration fixture.
-2. Integrate generated model header into STM32 firmware; Python/C host parity already passes.
+2. Integrate generated model header into STM32 firmware following
+   `docs/HARDWARE_SETUP_GUIDE.md`; Python/C host parity (float and quantized) already passes.
 3. Record controlled heating data and compare it with the synthetic fault assumptions.
-4. Measure energy per sample, inference, idle period, and LoRa packet.
-5. Run model-size/quantization ablations and address Gerber/Klamath holdout FPR before freezing.
+4. Measure energy per sample, inference, idle period, and LoRa packet, then replace the
+   placeholder `HardwareAssumptions` in `src/energy_model.py` and rerun `make energy`.
+5. Model-size/quantization ablation is done (`docs/generated/QUANTIZATION_RESULTS.md`); the
+   Gerber/Klamath holdout FPR has a working per-device threshold-trim mitigation
+   (`docs/generated/STATION_ROBUSTNESS.md`). A per-station readout retrain is the remaining
+   optional robustness improvement before freezing.
 6. Produce competition plots, two-page description, simulation evidence, and five-minute
    demonstration script before the 2026-09-10 deadline.
